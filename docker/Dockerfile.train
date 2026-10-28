@@ -1,0 +1,16 @@
+FROM python:3.11-slim
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1
+
+WORKDIR /app
+
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+COPY src/ ./src/
+COPY params.yaml .
+
+# Image polyvalente : sert de serveur MLflow (via `command` dans compose)
+# et d'exécuteur pour les pipelines d'entraînement (make train).
+CMD ["python", "-m", "src.pipelines.train"]

@@ -1,0 +1,33 @@
+# --- Core ML ---
+scikit-learn==1.5.2
+pandas==2.2.3
+numpy==2.0.2          # <2.1 requis par evidently 0.4.40 (compatible sklearn/pandas/mlflow)
+joblib==1.4.2
+
+# --- Experiment tracking / registry ---
+mlflow==2.17.2
+
+# --- Serving ---
+fastapi==0.115.5
+uvicorn[standard]==0.32.1
+pydantic==2.11.9
+pydantic-settings==2.7.1
+
+# --- Database ---
+sqlalchemy==2.0.36
+psycopg2-binary==2.9.10
+
+# --- Monitoring ---
+prometheus-fastapi-instrumentator==7.0.0
+evidently==0.4.40
+
+# --- Orchestration ---
+prefect==3.4.8
+
+# --- Config ---
+pyyaml==6.0.2
+
+# --- Dev / tests / lint ---
+pytest==8.3.3
+httpx==0.27.2
+ruff==0.7.3

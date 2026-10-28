@@ -1,0 +1,37 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+.pytest_cache/
+.ruff_cache/
+
+# Environnements virtuels
+env/
+venv/
+ENV/
+.venv/
+
+# IDEs
+.vscode/
+.idea/
+
+# Secrets / config locale
+.env
+
+# Artefacts de données et de modèles (ne jamais versionner les binaires)
+data/raw/*
+data/processed/*
+data/reference/*
+!data/**/.gitkeep
+models/*
+!models/.gitkeep
+
+# MLflow / stores locaux
+mlruns/
+mlartifacts/
+
+# Rapports générés
+reports/
+*.html

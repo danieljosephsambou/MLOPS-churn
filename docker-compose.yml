@@ -1,0 +1,125 @@
+services:
+  # ---------- Base de données applicative + backend MLflow ----------
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-mlops}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-mlops}
+      POSTGRES_DB: ${POSTGRES_DB:-mlops}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./docker/init-mlflow-db.sql:/docker-entrypoint-initdb.d/init-mlflow-db.sql:ro
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-mlops}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # ---------- Serveur de suivi d'expériences + Model Registry ----------
+  mlflow:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.train
+    command: >
+      mlflow server
+      --host 0.0.0.0 --port 5000
+      --backend-store-uri postgresql://${POSTGRES_USER:-mlops}:${POSTGRES_PASSWORD:-mlops}@postgres:5432/mlflow
+      --serve-artifacts
+      --artifacts-destination /mlartifacts
+    environment:
+      MLFLOW_HTTP_REQUEST_TIMEOUT: "120"
+      # Utilisée quand ce service sert à lancer l'entraînement
+      # (docker compose run) : pointe vers le serveur MLflow du réseau compose.
+      MLFLOW_TRACKING_URI: http://mlflow:5000
+      # Évite l'avertissement « Git executable not found » de MLflow.
+      GIT_PYTHON_REFRESH: quiet
+      # Les flux Prefect lancés depuis ce service pointent vers le serveur Prefect.
+      PREFECT_API_URL: http://prefect:4200/api
+    volumes:
+      - mlartifacts:/mlartifacts
+      # Données / modèles / rapports persistés sur l'hôte et partagés entre
+      # les exécutions ponctuelles (docker compose run) et l'API.
+      - ./data:/app/data
+      - ./models:/app/models
+      - ./reports:/app/reports
+      # Config montée en direct : modifier params.yaml sur l'hôte est pris en
+      # compte sans rebuild (ex. activer la dérive).
+      - ./params.yaml:/app/params.yaml
+    ports:
+      - "5000:5000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      prefect:
+        condition: service_started
+
+  # ---------- Serveur d'orchestration Prefect (+ interface web) ----------
+  prefect:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.train
+    command: prefect server start --host 0.0.0.0 --port 4200
+    environment:
+      PREFECT_HOME: /data
+      PREFECT_SERVER_API_HOST: 0.0.0.0
+      # URL que l'interface web appelle DEPUIS le navigateur (sur l'hôte) :
+      # doit être localhost, pas 0.0.0.0 (sinon l'UI n'affiche aucun run).
+      PREFECT_UI_API_URL: http://localhost:4200/api
+    volumes:
+      - prefectdb:/data
+    ports:
+      - "4200:4200"
+
+  # ---------- API de serving (FastAPI) ----------
+  api:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.api
+    env_file: .env
+    environment:
+      MLFLOW_TRACKING_URI: http://mlflow:5000
+      POSTGRES_HOST: postgres
+    volumes:
+      - ./data:/app/data
+      - ./models:/app/models
+      - ./params.yaml:/app/params.yaml
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      mlflow:
+        condition: service_started
+
+  # ---------- Monitoring : métriques service ----------
+  prometheus:
+    image: prom/prometheus:v2.55.0
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    ports:
+      - "9090:9090"
+    depends_on:
+      - api
+
+  grafana:
+    image: grafana/grafana:11.3.0
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+    volumes:
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana:/var/lib/grafana
+    ports:
+      - "3000:3000"
+    depends_on:
+      - prometheus
+
+volumes:
+  pgdata:
+  mlartifacts:
+  grafana:
+  prefectdb:

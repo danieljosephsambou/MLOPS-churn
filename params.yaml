@@ -1,0 +1,21 @@
+# Paramètres du pipeline — versionnés avec le code pour la reproductibilité.
+data:
+  n_samples: 5000
+  n_features: 12
+  n_informative: 6
+  class_sep: 1.2
+  churn_rate: 0.27        # proportion de clients "churn" (classe positive)
+  random_state: 42
+  test_size: 0.2
+  # Décalage de distribution injecté pour la démo de drift (0 = pas de drift)
+  drift_shift: 2.0
+
+model:
+  type: random_forest      # random_forest | logistic_regression
+  n_estimators: 200
+  max_depth: 8
+  random_state: 42
+
+training:
+  # Seuil minimal de ROC-AUC sous lequel l'entraînement échoue (quality gate)
+  min_roc_auc: 0.75
